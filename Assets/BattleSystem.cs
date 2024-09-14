@@ -16,56 +16,70 @@ public class BattleSystem : MonoBehaviour
     public Slider EnemyMainHealthSlider;
     public Slider EnemyDamageHealthSlider;
 
-    private int playerStartHealth = 100;
-    private int enemyStartHealth = 100;
-    private int playerCurrentHealth;
-    private int enemyCurrentHealth;
-    private int roundNumber = 0;
+    private Player player;
+    private Enemy enemy;
+
+    private ICombatantAction playerAction;
+    private ICombatantAction enemyAction;
+
     private int damageAmount = 20;
+    private int roundNumber = 0;
 
-
-    private float timer = 0f;
     private float preparationTime = 2.0f;
     private float decisionTime = 5.0f;
     private float delay = 1.0f;
 
+    private float timer = 0f;
 
+    public static event System.Action<string> OnPlayerMadeChoice;
 
-    private string playerChoice = "";
-    private string enemyChoice = "";
-    private bool hasPlayerChosen = false;
+    private bool isPlayerReady = false; // Флаг для проверки, что игрок сделал выбор
+    private bool isEnemyReady = false; // Флаг для соперника
 
+    private bool isGameOver = false; // Флаг для отслеживания состояния игры
 
     void Start()
     {
-        playerCurrentHealth = playerStartHealth;
-        enemyCurrentHealth = enemyStartHealth;
+        // Инициализация игрока и соперника
+        player = new Player(100);
+        enemy = new Enemy(100);
 
-        PlayerMainHealthSlider.maxValue = playerStartHealth;
-        EnemyMainHealthSlider.maxValue = enemyStartHealth;
-        PlayerDamageHealthSlider.maxValue = playerStartHealth;
-        EnemyDamageHealthSlider.maxValue = enemyStartHealth;
+        // Устанавливаем максимальные значения здоровья на UI
+        PlayerMainHealthSlider.maxValue = player.MaxHealth;
+        EnemyMainHealthSlider.maxValue = enemy.MaxHealth;
+        PlayerDamageHealthSlider.maxValue = player.MaxHealth;
+        EnemyDamageHealthSlider.maxValue = enemy.MaxHealth;
 
-        PlayerMainHealthSlider.value = playerStartHealth;
-        EnemyMainHealthSlider.value = enemyStartHealth;
-        PlayerDamageHealthSlider.value = playerStartHealth;
-        EnemyDamageHealthSlider.value = enemyStartHealth;
+        // Устанавливаем текущие значения здоровья
+        UpdateHealthUI();
+
+        // Создаем действия для игрока и соперника
+        playerAction = new PlayerAction();
+        enemyAction = new EnemyAction();
 
         roundStatusText.text = "Начало матча...";
         timerText.text = "";
-        Invoke("StartPreparation", delay);
 
+        // Подписываемся на события выбора действия
+        playerAction.OnActionChosen += OnPlayerActionChosen;
+        enemyAction.OnActionChosen += OnEnemyActionChosen;
+
+        // Привязываем кнопки
         rockButton.onClick.AddListener(() => PlayerMakesChoice("Rock"));
         paperButton.onClick.AddListener(() => PlayerMakesChoice("Paper"));
         scissorsButton.onClick.AddListener(() => PlayerMakesChoice("Scissors"));
+
+        // Начинаем игру
+        Invoke("StartPreparation", delay);
     }
 
     void StartPreparation()
     {
-        ResetChoices();
+        if (isGameOver) return; // Если игра окончена, выходим из цикла
+
         timer = preparationTime;
         roundNumber++;
-        ActionButtonsInputAvailable(false);
+        ActionButtonsInputAvailable(false); // Отключаем кнопки на время подготовки
         StartCoroutine(PreparationPhase());
     }
 
@@ -78,147 +92,111 @@ public class BattleSystem : MonoBehaviour
             timerText.text = $"{Mathf.Ceil(timer)}";
             yield return null;
         }
+
         StartDecisionPhase();
     }
 
     void StartDecisionPhase()
     {
+        if (isGameOver) return; // Если игра окончена, выходим
+
         roundStatusText.text = $"Сделайте выбор!";
         timer = decisionTime;
-        ActionButtonsInputAvailable(true);
-        StartCoroutine(DecisionPhase());
+        isPlayerReady = false; // Обнуляем выбор игрока
+        isEnemyReady = false;  // Обнуляем выбор соперника
+
+        ActionButtonsInputAvailable(true); // Включаем кнопки для выбора
+
+        // Ожидаем выбор игрока и соперника
+        playerAction.ChooseAction();
+        enemyAction.ChooseAction();
+
+        StartCoroutine(DecisionPhase()); // Запускаем фазу принятия решения
     }
 
     IEnumerator DecisionPhase()
     {
         while (timer > 0)
         {
-            if (hasPlayerChosen)
-            {
-                break;
-            }
+            if (isPlayerReady && isEnemyReady)
+                break; // Если оба выбрали действие - выходим
+
             timer -= Time.deltaTime;
             timerText.text = $"{Mathf.Ceil(timer)}";
             yield return null;
         }
-        if (!hasPlayerChosen)
+
+        // Если время вышло, игрок ничего не выбрал
+        if (!isPlayerReady)
         {
-            playerChoice = "None";
+            OnPlayerMadeChoice?.Invoke("None"); // Если игрок не сделал выбор
         }
-        CalculateEnemyChoice();
+
         EvaluateRoundResult();
     }
 
-    void PlayerMakesChoice(string choice)
+    private void PlayerMakesChoice(string choice)
     {
-        if (!hasPlayerChosen)
-        {
-            hasPlayerChosen = true;
-            playerChoice = choice;
-            Debug.Log($"Игрок выбрал: {choice}");
-            ActionButtonsInputAvailable(false);
-        }
+        OnPlayerMadeChoice?.Invoke(choice); // Сообщаем системе, что игрок сделал выбор
+        ActionButtonsInputAvailable(false);
     }
 
-    void CalculateEnemyChoice()
+    private void OnPlayerActionChosen()
     {
-        string[] choices = { "Rock", "Paper", "Scissors" };
-        enemyChoice = choices[Random.Range(0, choices.Length)];
-        Debug.Log($"Противник выбрал: {enemyChoice}");
+        isPlayerReady = true; // Игрок сделал выбор
+    }
+
+    private void OnEnemyActionChosen()
+    {
+        isEnemyReady = true; // Противник сделал выбор
     }
 
     void EvaluateRoundResult()
     {
-        Debug.Log($"Результат: {playerChoice} vs {enemyChoice}");
-
-        if (playerChoice == enemyChoice)
+        if (isPlayerReady && isEnemyReady) // Проверяем, что оба выбрали действия
         {
-            roundStatusText.text = "Ничья!";
-        }
-        else if ((playerChoice == "Rock" && enemyChoice == "Scissors") ||
-                 (playerChoice == "Paper" && enemyChoice == "Rock") ||
-                 (playerChoice == "Scissors" && enemyChoice == "Paper"))
-        {
-            roundStatusText.text = "Вы выиграли!";
-            enemyCurrentHealth -= damageAmount;
-            TakeDamage(EnemyDamageHealthSlider, EnemyMainHealthSlider, enemyCurrentHealth, damageAmount);
+            Debug.Log($"Результат: {playerAction.CurrentChoice} vs {enemyAction.CurrentChoice}");
 
-            // Проверка, если здоровье противника <= 0
-            if (enemyCurrentHealth <= 0)
+            if (playerAction.CurrentChoice == enemyAction.CurrentChoice)
             {
-                GameOver(true); // Победа игрока
-                return; // Завершаем выполнение метода
+                roundStatusText.text = "Ничья!";
             }
-        }
-        else
-        {
-            roundStatusText.text = "Вы проиграли!";
-            playerCurrentHealth -= damageAmount;
-            TakeDamage(PlayerDamageHealthSlider, PlayerMainHealthSlider, playerCurrentHealth, damageAmount);
-
-            // Проверка, если здоровье игрока <= 0
-            if (playerCurrentHealth <= 0)
+            else if ((playerAction.CurrentChoice == "Rock" && enemyAction.CurrentChoice == "Scissors") ||
+                     (playerAction.CurrentChoice == "Paper" && enemyAction.CurrentChoice == "Rock") ||
+                     (playerAction.CurrentChoice == "Scissors" && enemyAction.CurrentChoice == "Paper"))
             {
-                GameOver(false); // Победа противника
-                return; // Завершаем выполнение метода
+                roundStatusText.text = "Вы выиграли!";
+                TakeDamage(EnemyDamageHealthSlider, EnemyMainHealthSlider, damageAmount, enemy);
+                StartCoroutine(UpdateHealthSlider(EnemyMainHealthSlider, enemy.CurrentHealth));
+
+                if (enemy.CurrentHealth <= 0)
+                {
+                    GameOver(true);
+                    return;
+                }
             }
+            else
+            {
+                roundStatusText.text = "Вы проиграли!";
+                TakeDamage(PlayerDamageHealthSlider, PlayerMainHealthSlider, damageAmount, player);
+                StartCoroutine(UpdateHealthSlider(PlayerMainHealthSlider, player.CurrentHealth));
+
+                if (player.CurrentHealth <= 0)
+                {
+                    GameOver(false);
+                    return;
+                }
+            }
+
+            // Задержка перед следующим раундом
+            Invoke("StartPreparation", delay);
         }
-
-        // Задержка перед началом следующего раунда
-        Invoke("StartPreparation", delay);
     }
-
-    void ResetChoices()
-    {
-        playerChoice = null;
-        enemyChoice = null;
-        hasPlayerChosen = false;
-
-    }
-    public void TakeDamage(Slider damageSlider, Slider mainSlider, int currentHealth, int damageAmount)
-    {
-        Debug.Log($"Нанесено урона: {damageAmount}");
-        // Обновляем основной слайдер здоровья
-        StartCoroutine(UpdateHealthSlider(mainSlider, currentHealth));
-
-        // Передаем начальное значение здоровья до получения урона
-        int previousHealth = currentHealth + damageAmount;
-        StartCoroutine(ShowDamageEffect(damageSlider, mainSlider, previousHealth));
-    }
-
-    private IEnumerator ShowDamageEffect(Slider damageSlider, Slider mainSlider, int previousHealth)
-    {
-        // Ждем определенное время перед началом анимации
-        yield return new WaitForSeconds(1f);
-
-        float elapsedTime = 0f;
-        float duration = 2f; // Продолжительность анимации
-        float targetValue = previousHealth - damageAmount;    // Целевое значение основного слайдера после получения урона
-
-        Debug.Log($"Анимация урона с {damageSlider.value} до {targetValue}");
-
-        // Плавно уменьшаем значение слайдера урона до уровня основного слайдера
-        while (damageSlider.value > targetValue)
-        {
-            elapsedTime += Time.deltaTime;
-
-            // Уменьшаем значение damageSlider с использованием Mathf.MoveTowards
-            damageSlider.value = Mathf.MoveTowards(damageSlider.value, targetValue, (damageSlider.maxValue / duration) * Time.deltaTime);
-
-            yield return null;
-        }
-
-        // Убедитесь, что значение слайдера урона совпадает с основным слайдером
-        damageSlider.value = targetValue;
-    }
-
-
 
     IEnumerator UpdateHealthSlider(Slider healthSlider, int newHealth)
     {
-        Debug.Log($"UpdateHealthSlider");
         float elapsedTime = 0f;
-        float duration = 0.5f; // Продолжительность анимации
+        float duration = 0.5f;
         float startValue = healthSlider.value;
         float endValue = newHealth;
 
@@ -227,79 +205,118 @@ public class BattleSystem : MonoBehaviour
             elapsedTime += Time.deltaTime;
             float currentValue = Mathf.Lerp(startValue, endValue, elapsedTime / duration);
             healthSlider.value = currentValue;
-            GetHealthTextComponent(healthSlider).text = $"{Mathf.RoundToInt(currentValue).ToString()}/{healthSlider.maxValue.ToString()}";
+            GetHealthTextComponent(healthSlider).text = $"{Mathf.RoundToInt(currentValue)}/{healthSlider.maxValue}";
             yield return null;
         }
 
         healthSlider.value = endValue;
-        GetHealthTextComponent(healthSlider).text = $"{endValue.ToString()}/{healthSlider.maxValue.ToString()}";
+        GetHealthTextComponent(healthSlider).text = $"{endValue}/{healthSlider.maxValue}";
     }
-    void ActionButtonsInputAvailable(bool interactable)
+
+    void UpdateHealthUI()
     {
-        rockButton.interactable = interactable;
-        paperButton.interactable = interactable;
-        scissorsButton.interactable = interactable;
+        // Обновляем значения на UI для здоровья
+        PlayerMainHealthSlider.value = player.CurrentHealth;
+        PlayerDamageHealthSlider.value = player.CurrentHealth;
+
+        EnemyMainHealthSlider.value = enemy.CurrentHealth;
+        EnemyDamageHealthSlider.value = enemy.CurrentHealth;
+
+        // Обновляем текст здоровья
+        GetHealthTextComponent(PlayerMainHealthSlider).text = $"{player.CurrentHealth}/{player.MaxHealth}";
+        GetHealthTextComponent(EnemyMainHealthSlider).text = $"{enemy.CurrentHealth}/{enemy.MaxHealth}";
     }
+
     private Text GetHealthTextComponent(Slider slider)
     {
         Text[] texts = slider.GetComponentsInChildren<Text>();
         foreach (Text text in texts)
         {
-            if (text.gameObject.name == "valueText") // Или используйте другой уникальный признак
+            if (text.gameObject.name == "valueText") // Ищем компонент текста с именем "valueText"
             {
                 return text;
             }
         }
-        Debug.Log("Нет подходящего текста в слайдере");
+        Debug.LogError("Не найден компонент текста для здоровья!");
         return null;
-    }
-    void RestartGame()
-    {
-        StopAllCoroutines();
-        // Сбрасываем здоровье
-        playerCurrentHealth = playerStartHealth;
-        enemyCurrentHealth = enemyStartHealth;
-
-        // Обновляем значения слайдеров здоровья
-        PlayerMainHealthSlider.value = playerCurrentHealth;
-        PlayerDamageHealthSlider.value = playerCurrentHealth;
-
-        EnemyMainHealthSlider.value = enemyCurrentHealth;
-        EnemyDamageHealthSlider.value = enemyCurrentHealth;
-
-        // Обновляем текст здоровья
-        GetHealthTextComponent(PlayerMainHealthSlider).text = $"{playerCurrentHealth}/{playerStartHealth}";
-        GetHealthTextComponent(EnemyMainHealthSlider).text = $"{enemyCurrentHealth}/{enemyStartHealth}";
-
-        // Сбрасываем состояние раунда
-        roundNumber = 0;
-        roundStatusText.text = "Начало нового матча!";
-        timerText.text = "";
-
-        // Снова запускаем цикл раундов
-        Invoke("StartPreparation", delay);
     }
 
     void GameOver(bool playerWon)
     {
+        isGameOver = true; // Фиксируем, что игра окончена
 
         if (playerWon)
         {
-            roundStatusText.text = "Вы выиграли матч!";
+            roundStatusText.text = "Вы победили!";
         }
         else
         {
-            roundStatusText.text = "Вы проиграли матч!";
+            roundStatusText.text = "Вы проиграли!";
         }
 
-        // Отключаем кнопки
-        ActionButtonsInputAvailable(false);
+        ActionButtonsInputAvailable(false); // Отключаем кнопки
 
-        // Останавливаем таймеры и действия
-
-        // Через несколько секунд перезапускаем игру
-        Invoke("RestartGame", 3f); // Перезапуск через 3 секунды
+        // Ожидаем несколько секунд перед перезапуском
+        Invoke("RestartGame", 3f);
     }
 
+    void RestartGame()
+    {
+        // Сбрасываем состояние игры
+        isGameOver = false;
 
+        // Сбрасываем здоровье игрока и соперника
+        player.ResetHealth();
+        enemy.ResetHealth();
+
+        // Обновляем UI здоровья
+        UpdateHealthUI();
+
+        // Сбрасываем текст статуса раунда
+        roundNumber = 0;
+        roundStatusText.text = "Начало нового матча!";
+        timerText.text = "";
+
+        // Запускаем первый раунд после небольшого ожидания
+        Invoke("StartPreparation", delay);
+    }
+    public IEnumerator ShowDamageEffect(Slider damageSlider, Slider mainSlider, int previousHealth)
+    {
+        yield return new WaitForSeconds(0.5f);  // Ждем 1 секунду перед анимацией
+
+        float elapsedTime = 0f;
+        float duration = 2f;  // Длительность анимации
+        float targetValue = previousHealth - damageAmount;  // Целевое значение (здоровье после урона)
+
+        // Плавное уменьшение значения слайдера
+        while (damageSlider.value > targetValue)
+        {
+            elapsedTime += Time.deltaTime;
+            // Уменьшаем значение damageSlider с использованием Mathf.MoveTowards
+            damageSlider.value = Mathf.MoveTowards(damageSlider.value, targetValue, (damageSlider.maxValue / duration) * Time.deltaTime);
+            yield return null;
+        }
+
+        // Убедитесь, что значение слайдера урона совпадает с основным слайдером
+        damageSlider.value = targetValue;
+    }
+
+    public void TakeDamage(Slider damageSlider, Slider mainSlider, int amount, ICombatant combatant)
+    {
+        combatant.TakeDamage(amount); // уменьшаем здоровье
+
+        // Обновляем основной слайдер здоровья
+        StartCoroutine(UpdateHealthSlider(mainSlider, combatant.CurrentHealth));
+
+        // Передаем начальное значение здоровья до получения урона
+        int previousHealth = combatant.CurrentHealth + amount;
+        StartCoroutine(ShowDamageEffect(damageSlider, mainSlider, previousHealth));
+    }
+
+    void ActionButtonsInputAvailable(bool available)
+    {
+        rockButton.interactable = available;
+        paperButton.interactable = available;
+        scissorsButton.interactable = available;
+    }
 }
