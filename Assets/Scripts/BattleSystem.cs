@@ -1,9 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using UnityEngine.SceneManagement;
 
 public class BattleSystem : MonoBehaviour
 {
+    private ScreenManager screenManager;
     public Text roundStatusText;
     public Text timerText;
     public Button rockButton;
@@ -37,9 +39,15 @@ public class BattleSystem : MonoBehaviour
     private bool isEnemyReady = false; // Флаг для соперника
 
     private bool isGameOver = false; // Флаг для отслеживания состояния игры
+    private void Awake()
+    {
+        ActionButtonsInputAvailable(false); // Отключаем кнопки на время подготовки
+        screenManager = FindObjectOfType<ScreenManager>();
+    }
 
     void Start()
     {
+
         // Инициализация игрока и соперника
         player = new Player(100);
         enemy = new Enemy(100);
@@ -243,22 +251,24 @@ public class BattleSystem : MonoBehaviour
 
     void GameOver(bool playerWon)
     {
-        isGameOver = true; // Фиксируем, что игра окончена
-
         if (playerWon)
         {
-            roundStatusText.text = "Вы победили!";
+            roundStatusText.text = "Матч окончен!";
         }
         else
         {
-            roundStatusText.text = "Вы проиграли!";
+            roundStatusText.text = "Матч окончен!";
         }
 
-        ActionButtonsInputAvailable(false); // Отключаем кнопки
+        // Отключаем кнопки
+        ActionButtonsInputAvailable(false);
 
-        // Ожидаем несколько секунд перед перезапуском
-        Invoke("RestartGame", 3f);
+        // Показать попап завершения игры
+        screenManager.ShowMatchEndPopup(playerWon);  // Показываем попап
+
+        // Останавливаем таймеры и действия
     }
+
 
     void RestartGame()
     {
