@@ -44,7 +44,6 @@ public class ScreenManager : MonoBehaviour
     // Метод, вызываемый при нажатии на кнопку "Старт"
     void StartButtonPressed()
     {
-        Debug.Log("Жму старт");
         // Переход на экран игры
         ShowBattleScreen();
 

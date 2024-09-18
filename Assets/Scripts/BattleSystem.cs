@@ -14,6 +14,12 @@ public class BattleSystem : MonoBehaviour
     public Button paperButton;
     public Button scissorsButton;
 
+    public Sprite rockSprite;    // Спрайт для камня
+    public Sprite paperSprite;   // Спрайт для бумаги
+    public Sprite scissorsSprite; // Спрайт для ножниц
+    public Sprite emptySprite; // Спрайт пустого выбора
+
+
     public Slider PlayerMainHealthSlider;
     public Slider PlayerDamageHealthSlider;
 
@@ -235,15 +241,89 @@ public class BattleSystem : MonoBehaviour
         // Создаем новый элемент UI на основе префаба
         GameObject roundResultObject = Instantiate(roundResultPrefab, roundResultsContent);
 
-        // Находим текстовые элементы в префабе
-        Text[] texts = roundResultObject.GetComponentsInChildren<Text>();
-        if (texts.Length >= 2)
+        // Находим текстовые компоненты и изображения в префабе
+        Text roundText = roundResultObject.GetComponentInChildren<Text>();
+        Image[] images = roundResultObject.GetComponentsInChildren<Image>();
+        Debug.Log(images.Length);
+
+        Image playerActionImage = null;
+        Image playerWinFrame = null;
+        Image enemyActionImage = null;
+        Image enemyWinFrame = null;
+
+        // Ищем нужные компоненты для спрайтов действий и корон
+        foreach (Image image in images)
         {
-            texts[0].text = $"P: {playerAction.GetActionName()}";  // Используем действие игрока
-            texts[1].text = $"E: {enemyAction.GetActionName()}";    // Используем действие оппонента
+            if (image.gameObject.name == "PlayerActionImage")
+            {
+                playerActionImage = image;
+                Debug.Log("Назначил PlayerActionImage");
+            }
+            else if (image.gameObject.name == "PlayerWinFrame")
+            {
+                playerWinFrame = image;
+                Debug.Log("Назначил PlayerWinFrame");
+            }
+            else if (image.gameObject.name == "EnemyActionImage")
+            {
+                enemyActionImage = image;
+                Debug.Log("Назначил EnemyActionImage");
+            }
+            else if (image.gameObject.name == "EnemyWinFrame")
+            {
+                enemyWinFrame = image;
+                Debug.Log("Назначил EnemyWinFrame");
+            }
         }
+
+        // Назначаем текст для раунда
+        roundText.text = $"Раунд {roundNumber}";
+
+        // Назначаем спрайты для действий игрока и противника
+        playerActionImage.sprite = GetActionSprite(playerAction.GetActionName());
+        enemyActionImage.sprite = GetActionSprite(enemyAction.GetActionName());
+
+        // Скрываем обе короны по умолчанию
+        playerWinFrame.gameObject.SetActive(false);
+        enemyWinFrame.gameObject.SetActive(false);
+
+        // Определяем, кто победил, и включаем корону
+        if (playerAction.CurrentChoice == enemyAction.CurrentChoice)
+        {
+            roundText.text += " — Ничья!";
+        }
+        else if ((playerAction.CurrentChoice == "Rock" && enemyAction.CurrentChoice == "Scissors") ||
+                 (playerAction.CurrentChoice == "Paper" && enemyAction.CurrentChoice == "Rock") ||
+                 (playerAction.CurrentChoice == "Scissors" && enemyAction.CurrentChoice == "Paper"))
+        {
+            roundText.text += " — Победа!";
+            // Показываем корону над игроком
+            playerWinFrame.gameObject.SetActive(true);
+        }
+        else
+        {
+            roundText.text += " — Поражение!";
+            // Показываем корону над противником
+            enemyWinFrame.gameObject.SetActive(true);
+        }
+
         Canvas.ForceUpdateCanvases();  // Форсируем обновление UI
         ScrollToBottom();
+    }
+
+    private Sprite GetActionSprite(string actionName)
+    {
+        switch (actionName)
+        {
+            case "Rock":
+                return rockSprite;
+            case "Paper":
+                return paperSprite;
+            case "Scissors":
+                return scissorsSprite;
+            default:
+                return emptySprite;
+        }
     }
 
     IEnumerator UpdateHealthSlider(Slider healthSlider, int newHealth)
