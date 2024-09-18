@@ -1,7 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using System;
 using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 
 public class BattleSystem : MonoBehaviour
 {
@@ -33,7 +35,16 @@ public class BattleSystem : MonoBehaviour
 
     private float timer = 0f;
 
-    public static event System.Action<string> OnPlayerMadeChoice;
+    public static event Action<string> OnPlayerMadeChoice;
+
+    // Для хранения всех раундов
+    private List<RoundResult> roundResults = new List<RoundResult>();
+
+    // UI для отображения списка действий
+    public GameObject roundResultPrefab; // Префаб для отображения результата раунда
+    public Transform roundResultsContent; // Контейнер для элементов списка
+    public ScrollRect scrollView; // ScrollView для скроллинга списка
+
 
     private bool isPlayerReady = false; // Флаг для проверки, что игрок сделал выбор
     private bool isEnemyReady = false; // Флаг для соперника
@@ -43,6 +54,20 @@ public class BattleSystem : MonoBehaviour
     {
         ActionButtonsInputAvailable(false); // Отключаем кнопки на время подготовки
         screenManager = FindObjectOfType<ScreenManager>();
+        scrollView = scrollView.GetComponent<ScrollRect>();
+    }
+
+    private void OnEnable()
+    {
+        // Подписка на событие нажатия кнопки "Старт"
+        ScreenManager.OnStartButtonPressed += StartFirstRound;
+
+    }
+
+    private void OnDisable()
+    {
+        // Отписка от события при отключении BattleSystem
+        ScreenManager.OnStartButtonPressed -= StartFirstRound;
     }
 
     void Start()
@@ -76,11 +101,13 @@ public class BattleSystem : MonoBehaviour
         rockButton.onClick.AddListener(() => PlayerMakesChoice("Rock"));
         paperButton.onClick.AddListener(() => PlayerMakesChoice("Paper"));
         scissorsButton.onClick.AddListener(() => PlayerMakesChoice("Scissors"));
-
-        // Начинаем игру
-        Invoke("StartPreparation", delay);
     }
 
+    void StartFirstRound()
+    {
+        RestartGame();
+        StartPreparation();
+    }
     void StartPreparation()
     {
         if (isGameOver) return; // Если игра окончена, выходим из цикла
@@ -165,6 +192,12 @@ public class BattleSystem : MonoBehaviour
         {
             Debug.Log($"Результат: {playerAction.CurrentChoice} vs {enemyAction.CurrentChoice}");
 
+            // Сохраняем результат раунда
+            roundResults.Add(new RoundResult(playerAction, enemyAction));
+
+            // Обновляем список на экране
+            AddRoundResultToUI(playerAction, enemyAction);
+
             if (playerAction.CurrentChoice == enemyAction.CurrentChoice)
             {
                 roundStatusText.text = "Ничья!";
@@ -199,6 +232,21 @@ public class BattleSystem : MonoBehaviour
             // Задержка перед следующим раундом
             Invoke("StartPreparation", delay);
         }
+    }
+    private void AddRoundResultToUI(ICombatantAction playerAction, ICombatantAction enemyAction)
+    {
+        // Создаем новый элемент UI на основе префаба
+        GameObject roundResultObject = Instantiate(roundResultPrefab, roundResultsContent);
+
+        // Находим текстовые элементы в префабе
+        Text[] texts = roundResultObject.GetComponentsInChildren<Text>();
+        if (texts.Length >= 2)
+        {
+            texts[0].text = $"P: {playerAction.GetActionName()}";  // Используем действие игрока
+            texts[1].text = $"E: {enemyAction.GetActionName()}";    // Используем действие оппонента
+        }
+        Canvas.ForceUpdateCanvases();  // Форсируем обновление UI
+        ScrollToBottom();
     }
 
     IEnumerator UpdateHealthSlider(Slider healthSlider, int newHealth)
@@ -262,7 +310,6 @@ public class BattleSystem : MonoBehaviour
 
         // Отключаем кнопки
         ActionButtonsInputAvailable(false);
-
         // Показать попап завершения игры
         screenManager.ShowMatchEndPopup(playerWon);  // Показываем попап
 
@@ -278,7 +325,8 @@ public class BattleSystem : MonoBehaviour
         // Сбрасываем здоровье игрока и соперника
         player.ResetHealth();
         enemy.ResetHealth();
-
+        roundResults.Clear();
+        ClearScrollViewContent();
         // Обновляем UI здоровья
         UpdateHealthUI();
 
@@ -287,8 +335,6 @@ public class BattleSystem : MonoBehaviour
         roundStatusText.text = "Начало нового матча!";
         timerText.text = "";
 
-        // Запускаем первый раунд после небольшого ожидания
-        Invoke("StartPreparation", delay);
     }
     public IEnumerator ShowDamageEffect(Slider damageSlider, Slider mainSlider, int previousHealth)
     {
@@ -328,5 +374,22 @@ public class BattleSystem : MonoBehaviour
         rockButton.interactable = available;
         paperButton.interactable = available;
         scissorsButton.interactable = available;
+    }
+    public void ClearScrollViewContent()
+    {
+        // Удаляем всех детей внутри scrollViewContent
+        foreach (Transform child in roundResultsContent)
+        {
+            Destroy(child.gameObject);
+        }
+    }
+    // Метод для прокрутки ScrollView до самого конца
+    private void ScrollToBottom()
+    {
+        // Устанавливаем вертикальный скроллбар на 0 (самый низ)
+        scrollView.verticalNormalizedPosition = 0f;
+
+        // Форсируем обновление после прокрутки
+        Canvas.ForceUpdateCanvases();
     }
 }
