@@ -7,6 +7,8 @@ public class ScreenManager : MonoBehaviour
     public GameObject lobbyScreen;    // Экран лобби
     public GameObject gameScreen;     // Экран игры
     public Button startButton;
+    public Button endMatchButton;
+
 
 
     public Text matchEndTitleText; // Ссылка на текст заголовка попапа
@@ -17,20 +19,34 @@ public class ScreenManager : MonoBehaviour
     public GameObject matchEndPopup;  // Попап завершения матча
 
     public static event Action OnStartButtonPressed;
+    public static event Action OnEndMatchButtonPressed;
+
 
 
     void Start()
     {
         startButton.onClick.AddListener(StartButtonPressed);
+        endMatchButton.onClick.AddListener(EndMatchButtonPressed);
 
         ShowLobby(); // По умолчанию показываем лобби
     }
+
+    private void EndMatchButtonPressed()
+    {
+        matchEndPopup.SetActive(false);
+        gameScreen.SetActive(false);
+        lobbyScreen.SetActive(true);
+
+        // Вызов события
+        OnEndMatchButtonPressed?.Invoke();
+    }
+
     // Метод, вызываемый при нажатии на кнопку "Старт"
     void StartButtonPressed()
     {
+        Debug.Log("Жму старт");
         // Переход на экран игры
-        lobbyScreen.SetActive(false);
-        gameScreen.SetActive(true);
+        ShowBattleScreen();
 
         // Вызов события
         OnStartButtonPressed?.Invoke(); // Вызов всех подписчиков на это событие
@@ -58,49 +74,35 @@ public class ScreenManager : MonoBehaviour
     }
 
     // Показать экран игры
-    public void StartGame()
+
+
+    // Показать попап завершения матча
+    public void ShowMatchEndPopup(bool playerWon)
     {
-        lobbyScreen.SetActive(false);
-        gameScreen.SetActive(true);
-
-
-}
-
-// Показать попап завершения матча
-public void ShowMatchEndPopup(bool playerWon)
-{
-    if (playerWon)
-    {
-        matchEndTitleText.text = "Победа!";
+        if (playerWon)
+        {
+            matchEndTitleText.text = "Победа!";
+        }
+        else
+        {
+            matchEndTitleText.text = "Поражение";
+        }
+        matchEndPopup.SetActive(true);
     }
-    else
+
+    // Скрыть попап завершения матча
+
+
+    // Показать попап настроек
+    public void ShowSettingsPopup()
     {
-        matchEndTitleText.text = "Поражение";
+        settingsPopup.SetActive(true);
     }
-    matchEndPopup.SetActive(true);
-}
 
-// Скрыть попап завершения матча
-public void HideMatchEndPopup()
-{
-    matchEndPopup.SetActive(false);
-}
+    // Скрыть попап настроек
+    public void HideSettingsPopup()
+    {
+        settingsPopup.SetActive(false);
+    }
 
-// Показать попап настроек
-public void ShowSettingsPopup()
-{
-    settingsPopup.SetActive(true);
-}
-
-// Скрыть попап настроек
-public void HideSettingsPopup()
-{
-    settingsPopup.SetActive(false);
-}
-
-// Выйти в лобби (используется в попапе завершения матча)
-public void ReturnToLobby()
-{
-    ShowLobby();
-}
 }

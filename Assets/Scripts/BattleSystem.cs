@@ -60,14 +60,15 @@ public class BattleSystem : MonoBehaviour
     private void OnEnable()
     {
         // Подписка на событие нажатия кнопки "Старт"
-        ScreenManager.OnStartButtonPressed += StartFirstRound;
+        ScreenManager.OnStartButtonPressed += StartPreparation;
+        ScreenManager.OnEndMatchButtonPressed += RestartGame;
 
     }
 
     private void OnDisable()
     {
         // Отписка от события при отключении BattleSystem
-        ScreenManager.OnStartButtonPressed -= StartFirstRound;
+        ScreenManager.OnStartButtonPressed -= StartPreparation;
     }
 
     void Start()
@@ -103,13 +104,9 @@ public class BattleSystem : MonoBehaviour
         scissorsButton.onClick.AddListener(() => PlayerMakesChoice("Scissors"));
     }
 
-    void StartFirstRound()
-    {
-        RestartGame();
-        StartPreparation();
-    }
     void StartPreparation()
     {
+
         if (isGameOver) return; // Если игра окончена, выходим из цикла
 
         timer = preparationTime;
