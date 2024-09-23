@@ -242,7 +242,7 @@ public class BattleSystem : MonoBehaviour
         GameObject roundResultObject = Instantiate(roundResultPrefab, roundResultsContent);
 
         // Находим текстовые компоненты и изображения в префабе
-        Text roundText = roundResultObject.GetComponentInChildren<Text>();
+        //Text roundText = roundResultObject.GetComponentInChildren<Text>();
         Image[] images = roundResultObject.GetComponentsInChildren<Image>();
         Debug.Log(images.Length);
 
@@ -277,7 +277,7 @@ public class BattleSystem : MonoBehaviour
         }
 
         // Назначаем текст для раунда
-        roundText.text = $"Раунд {roundNumber}";
+        //roundText.text = $"Раунд {roundNumber}";
 
         // Назначаем спрайты для действий игрока и противника
         playerActionImage.sprite = GetActionSprite(playerAction.GetActionName());
@@ -290,19 +290,19 @@ public class BattleSystem : MonoBehaviour
         // Определяем, кто победил, и включаем корону
         if (playerAction.CurrentChoice == enemyAction.CurrentChoice)
         {
-            roundText.text += " — Ничья!";
+            //roundText.text += " — Ничья!";
         }
         else if ((playerAction.CurrentChoice == "Rock" && enemyAction.CurrentChoice == "Scissors") ||
                  (playerAction.CurrentChoice == "Paper" && enemyAction.CurrentChoice == "Rock") ||
                  (playerAction.CurrentChoice == "Scissors" && enemyAction.CurrentChoice == "Paper"))
         {
-            roundText.text += " — Победа!";
+            //roundText.text += " — Победа!";
             // Показываем корону над игроком
             playerWinFrame.gameObject.SetActive(true);
         }
         else
         {
-            roundText.text += " — Поражение!";
+            //roundText.text += " — Поражение!";
             // Показываем корону над противником
             enemyWinFrame.gameObject.SetActive(true);
         }
@@ -387,6 +387,7 @@ public class BattleSystem : MonoBehaviour
 
         // Отключаем кнопки
         ActionButtonsInputAvailable(false);
+        StopAllCoroutines();
         // Показать попап завершения игры
         screenManager.ShowMatchEndPopup(playerWon);  // Показываем попап
 
